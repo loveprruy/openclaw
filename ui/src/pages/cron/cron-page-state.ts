@@ -132,7 +132,6 @@ export function createCronPage(context: () => ApplicationContext, host: () => HT
     // Replacing the owner retires results from the previous agent scope.
     resetGatewayState(context().gateway.snapshot);
     cron.cronAgentId = scopeId;
-    setListTab("tasks");
     setDetailTab("settings");
     ensureInitialData();
     publish();
