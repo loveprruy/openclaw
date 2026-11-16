@@ -12,7 +12,6 @@ import {
   createControlUiE2eSuite,
   holdModuleResponse,
 } from "../../e2e/control-ui-e2e-suite.test-support.ts";
-import { collapseNav } from "../../e2e/cron-fixtures.test-support.ts";
 import { createControlUiE2eArtifactDir } from "../../test-helpers/control-ui-e2e-artifacts.ts";
 import { takeControlUiScreenshotFrame } from "../../test-helpers/control-ui-e2e-screenshot.ts";
 import { installMockGateway } from "../../test-helpers/control-ui-e2e.ts";
@@ -55,11 +54,12 @@ async function installCron(page: Page, methodResponses: Record<string, unknown>)
     methodResponses: { ...cron, ...methodResponses },
   });
   await page.goto(`${suite.server.baseUrl}cron`);
-  await collapseNav(page);
   return gateway;
 }
+const sidebarActivity = (page: Page) => page.locator('.sidebar-automations a[href$="?activity"]');
+const sidebarNewAutomation = (page: Page) => page.locator(".sidebar-automations__new");
 async function openRunHistory(page: Page) {
-  await page.getByRole("tab", { name: "Activity history", exact: true }).click();
+  await sidebarActivity(page).click();
   const button = buttonNamed(page.locator(".cron-run-entry"), "View chat");
   await button.click();
   return { button, region: transcriptRegion(page) };
@@ -80,7 +80,7 @@ suite.define(() => {
       );
       try {
         await installCron(page, { "cron.history": history("Delayed transcript output") });
-        await page.getByRole("tab", { name: "Activity history", exact: true }).waitFor();
+        await sidebarActivity(page).waitFor();
         expect(heldHistory.requests()).toBe(0);
         expect(held.requests()).toBe(0);
         const { button, region } = await openRunHistory(page);
@@ -128,7 +128,6 @@ suite.define(() => {
       });
       await openRunHistory(page);
       await reload;
-      await collapseNav(page);
       const { button, region } = await openRunHistory(page);
       await exactText(region, "Recovered transcript output").waitFor();
       expect(failed.documentCount()).toBe(2);
@@ -216,17 +215,16 @@ suite.define(() => {
       expect(await output.count()).toBe(1);
       expect(await gateway.getRequests("cron.history")).toHaveLength(1);
 
-      await page.locator('[data-test-id="cron-new-task"]').click();
+      await sidebarNewAutomation(page).click();
       await page.locator('.cron-page[data-panel-mode="create"]').waitFor();
       expect(await transcript.count()).toBe(0);
       expect(await page.locator(".content").evaluate((element) => element.scrollTop)).toBe(0);
 
-      await buttonNamed(page, "All automations").click();
       await gateway.deferNext("cron.history");
       await openRunHistory(page);
       await gateway.waitForRequest("cron.history", { after: 1 });
       await transcript.getByRole("status").waitFor();
-      await page.locator('[data-test-id="cron-new-task"]').click();
+      await sidebarNewAutomation(page).click();
       await page.locator('.cron-page[data-panel-mode="create"]').waitFor();
       expect(await transcript.count()).toBe(0);
       await gateway.resolveDeferred("cron.history", history("Retired daily report response"));
@@ -249,7 +247,7 @@ suite.define(() => {
       expect(await exactText(region, conversationScope).count()).toBe(1);
       expect(await region.getByText("Started at", { exact: false }).count()).toBe(0);
       expect(await gateway.getRequests("cron.history")).toHaveLength(0);
-      expect(new URL(page.url()).pathname).toBe("/cron");
+      expect(new URL(page.url()).pathname).toBe("/automations");
     });
   });
 
@@ -257,7 +255,7 @@ suite.define(() => {
     await suite.withPage({ locale: "de-DE", timezoneId: "UTC" }, async ({ page }) => {
       const gateway = await installCron(page, { "cron.history": history("Shared conversation") });
       await page.locator('html[lang="de"]').waitFor();
-      await page.locator('[data-test-id="cron-list-tab-activity"]').click();
+      await sidebarActivity(page).click();
       await page.locator(".cron-run-entry").getByRole("button").click();
       const region = page.locator("[data-cron-run-transcript]");
       await exactText(region, "Shared conversation").waitFor();
