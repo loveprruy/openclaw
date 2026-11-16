@@ -5,6 +5,7 @@ import {
   createEffect,
   createMemo,
   createProjection,
+  createSignal,
   lazy,
   Loading,
   onCleanup,
@@ -22,6 +23,7 @@ import { createTimeout } from "../lib/reactive/timers.ts";
 import { areUiSessionKeysEquivalent } from "../lib/sessions/session-key.ts";
 import { defineSolidBridge, type SolidBridgeElement } from "../lib/solid-bridge.ts";
 import { PluginSurface } from "../plugins/control-ui-view.solid.tsx";
+import { navigationSectionForPage } from "../plugins/navigation-sections.ts";
 import { appSidebarProperties, type AppSidebarProps } from "./app-sidebar-base.ts";
 import { AppSidebarOwner } from "./app-sidebar-owner.tsx";
 import { createSessionPullRequestIndicators } from "./app-sidebar-session-pr-indicators.ts";
@@ -86,11 +88,27 @@ function AppSidebarContent(
   sidebarOwners.set(host, owner);
   owner.bindContext(context);
   // The page decides the sidebar however it was reached: rail, link or history.
+  const [pluginRevision, setPluginRevision] = createSignal(0);
+  onSettled(() => context.plugins.subscribe(() => setPluginRevision((value) => value + 1)));
+  const pluginSection = () => {
+    pluginRevision();
+    return Boolean(
+      navigationSectionForPage(
+        context.plugins.registrations("navigation"),
+        props.activePluginTabId,
+      ),
+    );
+  };
   createEffect(
-    () => (props.activeRouteId ? `${props.activeRouteId}\n${props.activePluginTabId}` : ""),
+    () =>
+      props.activeRouteId
+        ? `${props.activeRouteId}\n${props.activePluginTabId}\n${pluginSection()}`
+        : "",
     (page, previous) => {
       const route = props.activeRouteId;
-      const view = route ? sidebarViewForPage(route, props.activePluginTabId) : undefined;
+      const view = route
+        ? sidebarViewForPage(route, props.activePluginTabId, pluginSection())
+        : undefined;
       if (view && page !== previous && owner.navigationView !== view) {
         owner.navigationView = view;
         owner.invalidate();
