@@ -441,7 +441,7 @@ const enCron = {
       refreshing: "Refreshing...",
       paused: "Paused",
       tasksTab: "Automations",
-      activity: "Activity",
+      runHistory: "Run history",
     },
   },
 } satisfies TranslationMap;
